@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hệ Thống Cảnh Báo Bạo Lực Học Đường</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #e53e3e;
+    --accent2: #f6ad55;
+    --safe: #38a169;
+    --warn: #d69e2e;
+    --danger: #e53e3e;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --glow: rgba(229,62,62,0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Be Vietnam Pro', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(30,45,69,0.3) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30,45,69,0.3) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(229,62,62,0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(66,153,225,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+    animation: pulse-bg 8s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulse-bg { 0% { opacity:0.5; } 100% { opacity:1; } }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  header {
+    text-align: center;
+    padding: 3rem 0 2.5rem;
+  }
+
+  .shield-icon {
+    width: 72px; height: 72px;
+    margin: 0 auto 1.5rem;
+    background: linear-gradient(135deg, #e53e3e, #c53030);
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem;
+    box-shadow: 0 0 40px rgba(229,62,62,0.4), 0 8px 24px rgba(0,0,0,0.4);
+    animation: float 4s ease-in-out infinite;
+    position: relative;
+  }
+
+  .shield-icon::after {
+    content: '';
+    position: absolute; inset: -4px;
+    border-radius: 24px;
+    border: 1px solid rgba(229,62,62,0.3);
+    animation: ring-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
+  @keyframes ring-pulse { 0%,100% { transform:scale(1); opacity:0.5; } 50% { transform:scale(1.1); opacity:0; } }
+
+  h1 {
+    font-size: clamp(1.6rem,4vw,2.4rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+    background: linear-gradient(135deg, #fff 30%, #f6ad55);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle { color: var(--muted); font-size: 0.95rem; }
+
+  .badge-row {
+    display: flex; gap: 0.5rem;
+    justify-content: center;
+    margin-top: 1.2rem; flex-wrap: wrap;
+  }
+
+  .badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px; border: 1px solid;
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+
+  .badge-pho { border-color: #f6ad55; color: #f6ad55; background: rgba(246,173,85,0.08); }
+  .badge-ai  { border-color: #63b3ed; color: #63b3ed; background: rgba(99,179,237,0.08); }
+  .badge-edu { border-color: #68d391; color: #68d391; background: rgba(104,211,145,0.08); }
+
+  /* Server status bar */
+  #server-status {
+    display: flex; align-items: center; gap: 0.6rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    padding: 0.6rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .status-dot.online  { background: #38a169; box-shadow: 0 0 6px #38a169; animation: blink 2s infinite; }
+  .status-dot.offline { background: #e53e3e; box-shadow: 0 0 6px #e53e3e; }
+  .status-dot.checking { background: #f6ad55; animation: blink 0.5s infinite; }
+
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    position: relative; overflow: hidden;
+  }
+
+  .section-card::before {
+    content: '';
+    position: absolute; top:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0; transition: opacity 0.3s;
+  }
+
+  .section-card:hover::before { opacity: 1; }
+
+  .section-label {
+    font-size: 0.72rem;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+
+  .section-label::before { content:''; width:16px; height:1px; background:var(--muted); }
+
+  textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    color: var(--text);
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 1rem;
+    resize: vertical; min-height: 120px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none; line-height: 1.6;
+  }
+
+  textarea:focus {
+    border-color: rgba(229,62,62,0.5);
+    box-shadow: 0 0 0 3px rgba(229,62,62,0.1);
+  }
+
+  textarea::placeholder { color: var(--muted); }
+
+  .input-footer {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    margin-top: 1rem; gap: 1rem; flex-wrap: wrap;
+  }
+
+  .char-count { font-family:'Space Mono',monospace; font-size:0.72rem; color:var(--muted); }
+
+  .analyze-btn {
+    background: linear-gradient(135deg, #c53030, #e53e3e);
+    color: white; border: none;
+    padding: 0.75rem 2rem; border-radius: 10px;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 0.9rem; font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 0.5rem;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(229,62,62,0.3);
+  }
+
+  .analyze-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(229,62,62,0.4); }
+  .analyze-btn:active { transform: translateY(0); }
+  .analyze-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+
+  .btn-spinner {
+    width:16px; height:16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .samples-row { display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:1rem; }
+
+  .sample-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem; cursor: pointer;
+    transition: all 0.15s; color: var(--muted);
+  }
+
+  .sample-chip:hover { border-color: rgba(229,62,62,0.4); color: var(--text); background: var(--surface); }
+
+  #results { display: none; }
+
+  .alert-banner {
+    border-radius: 16px; padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex; align-items: flex-start; gap: 1rem;
+    animation: slide-in 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  @keyframes slide-in { from { opacity:0; transform:translateY(-20px) scale(0.95); } to { opacity:1; transform:translateY(0) scale(1); } }
+
+  .alert-danger { background:rgba(229,62,62,0.12); border:1px solid rgba(229,62,62,0.4); }
+  .alert-warn   { background:rgba(214,158,46,0.12); border:1px solid rgba(214,158,46,0.4); }
+  .alert-safe   { background:rgba(56,161,105,0.12); border:1px solid rgba(56,161,105,0.4); }
+
+  .alert-icon { font-size:2rem; flex-shrink:0; }
+  .alert-title { font-size:1.1rem; font-weight:700; margin-bottom:0.3rem; }
+  .alert-danger .alert-title { color:#fc8181; }
+  .alert-warn   .alert-title { color:#f6ad55; }
+  .alert-safe   .alert-title { color:#68d391; }
+  .alert-desc { font-size:0.87rem; color:var(--muted); line-height:1.5; }
+
+  @keyframes shake { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-10deg)} 75%{transform:rotate(10deg)} }
+
+  /* Gauges */
+  .gauge-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem; margin-bottom: 1.5rem;
+  }
+
+  @media(max-width:540px) { .gauge-section { grid-template-columns:1fr; } }
+
+  .gauge-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem; text-align: center;
+    position: relative; overflow: hidden;
+  }
+
+  .gauge-card.triggered {
+    border-color: rgba(229,62,62,0.5);
+    box-shadow: 0 0 20px rgba(229,62,62,0.15);
+    animation: triggered-pulse 1.5s ease 3;
+  }
+
+  @keyframes triggered-pulse {
+    0%,100% { box-shadow:0 0 20px rgba(229,62,62,0.15); }
+    50%      { box-shadow:0 0 36px rgba(229,62,62,0.4); }
+  }
+
+  .gauge-label {
+    font-size:0.72rem; font-family:'Space Mono',monospace;
+    color:var(--muted); text-transform:uppercase;
+    letter-spacing:0.1em; margin-bottom:1rem;
+  }
+
+  .radial-gauge { position:relative; width:120px; height:120px; margin:0 auto 0.75rem; }
+  .radial-gauge svg { transform: rotate(-90deg); }
+
+  .gauge-track { fill:none; stroke:var(--border); stroke-width:8; }
+  .gauge-fill  { fill:none; stroke-width:8; stroke-linecap:round; stroke-dasharray:314; stroke-dashoffset:314; transition:stroke-dashoffset 1s cubic-bezier(0.34,1.2,0.64,1), stroke 0.5s; }
+
+  .gauge-value {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    font-size:1.6rem; font-weight:800;
+    font-family:'Space Mono',monospace;
+  }
+
+  .gauge-unit { font-size:0.7rem; color:var(--muted); font-weight:400; }
+
+  /* Flash overlay */
+  #alarm-flash {
+    position:fixed; inset:0;
+    background:rgba(229,62,62,0.08);
+    pointer-events:none; z-index:999; opacity:0;
+  }
+
+  #alarm-flash.flashing { animation:flash-alarm 0.4s ease 4; }
+  @keyframes flash-alarm { 0%,100%{opacity:0} 50%{opacity:1} }
+
+  /* Trigger tags */
+  .trigger-tag {
+    display:inline-flex; align-items:center; gap:0.35rem;
+    font-size:0.72rem; font-family:'Space Mono',monospace;
+    padding:0.3rem 0.75rem; border-radius:6px; font-weight:700;
+    letter-spacing:0.04em; animation:slide-in 0.3s ease both;
+  }
+
+  .trigger-tag-danger { background:rgba(229,62,62,0.2); color:#fc8181; border:1px solid rgba(229,62,62,0.4); }
+
+  /* Confidence bar (thay categories TensorFlow) */
+  .conf-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .conf-title {
+    font-size:0.72rem; font-family:'Space Mono',monospace;
+    color:var(--muted); text-transform:uppercase;
+    letter-spacing:0.1em; margin-bottom:1.2rem;
+    display:flex; align-items:center; gap:0.5rem;
+  }
+
+  .conf-title::before { content:''; width:16px; height:1px; background:var(--muted); }
+
+  .conf-row { display:flex; align-items:center; gap:1rem; margin-bottom:0.9rem; }
+  .conf-name { font-size:0.82rem; color:var(--text); min-width:140px; font-weight:500; }
+  .conf-bar-wrap { flex:1; height:8px; background:var(--border); border-radius:999px; overflow:hidden; }
+  .conf-bar { height:100%; border-radius:999px; width:0%; transition:width 0.8s cubic-bezier(0.34,1.2,0.64,1); }
+  .conf-pct { font-family:'Space Mono',monospace; font-size:0.72rem; min-width:40px; text-align:right; font-weight:700; }
+  .conf-badge { font-size:0.7rem; padding:0.15rem 0.5rem; border-radius:999px; font-weight:600; min-width:60px; text-align:center; }
+  .badge-blhd   { background:rgba(229,62,62,0.2); color:#fc8181; border:1px solid rgba(229,62,62,0.3); }
+  .badge-normal { background:rgba(56,161,105,0.1); color:#68d391; border:1px solid rgba(56,161,105,0.2); }
+
+  /* Model info chip */
+  .model-chip {
+    display:inline-flex; align-items:center; gap:0.4rem;
+    font-family:'Space Mono',monospace; font-size:0.65rem;
+    padding:0.25rem 0.6rem; border-radius:6px;
+    background:rgba(99,179,237,0.08); color:#63b3ed;
+    border:1px solid rgba(99,179,237,0.2);
+    margin-bottom:1rem;
+  }
+
+  /* Recommendation */
+  .rec-card {
+    background: linear-gradient(135deg, rgba(229,62,62,0.08), rgba(246,173,85,0.05));
+    border: 1px solid rgba(229,62,62,0.2);
+    border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;
+  }
+
+  .rec-card.safe-rec {
+    background: linear-gradient(135deg, rgba(56,161,105,0.08), rgba(104,211,145,0.05));
+    border-color: rgba(56,161,105,0.2);
+  }
+
+  .rec-card.warn-rec {
+    background: linear-gradient(135deg, rgba(214,158,46,0.08), rgba(246,173,85,0.05));
+    border-color: rgba(214,158,46,0.2);
+  }
+
+  .rec-head {
+    font-size:0.75rem; font-family:'Space Mono',monospace;
+    color:var(--muted); text-transform:uppercase;
+    letter-spacing:0.1em; margin-bottom:0.8rem;
+  }
+
+  .rec-list { list-style:none; display:flex; flex-direction:column; gap:0.5rem; }
+  .rec-list li { font-size:0.88rem; display:flex; gap:0.6rem; line-height:1.5; color:var(--text); }
+  .rec-list li::before { content:'→'; color:var(--accent2); flex-shrink:0; font-weight:700; }
+  .rec-card.safe-rec .rec-list li::before { color:var(--safe); }
+  .rec-card.warn-rec .rec-list li::before { color:var(--warn); }
+
+  .reset-btn {
+    display:block; width:100%;
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:10px; padding:0.75rem;
+    color:var(--muted); font-family:'Be Vietnam Pro',sans-serif;
+    font-size:0.88rem; cursor:pointer; transition:all 0.2s; text-align:center;
+  }
+
+  .reset-btn:hover { border-color:rgba(229,62,62,0.3); color:var(--text); }
+
+  .threshold-row {
+    display:flex; align-items:center; gap:1rem;
+    margin-top:1.2rem; padding-top:1.2rem;
+    border-top:1px solid var(--border); flex-wrap:wrap;
+  }
+
+  .threshold-label { font-size:0.8rem; color:var(--muted); white-space:nowrap; }
+
+  input[type=range] { flex:1; min-width:120px; accent-color:var(--accent); cursor:pointer; }
+
+  .threshold-val { font-family:'Space Mono',monospace; font-size:0.85rem; color:var(--accent2); min-width:36px; font-weight:700; }
+
+  footer {
+    text-align:center; color:var(--muted); font-size:0.75rem;
+    margin-top:3rem; padding-top:1.5rem;
+    border-top:1px solid var(--border); line-height:1.8;
+  }
+</style>
+</head>
+<body>
+<div id="alarm-flash"></div>
+<div class="wrapper">
+
+  <header>
+    <div class="shield-icon">🛡️</div>
+    <h1>Hệ Thống Cảnh Báo Sớm<br>Bạo Lực Học Đường</h1>
+    <p class="subtitle">Phân tích ngôn ngữ bằng AI — PhoBERT Fine-tuned (Tiếng Việt)</p>
+    <div class="badge-row">
+      <span class="badge badge-pho">PhoBERT</span>
+      <span class="badge badge-ai">Tiếng Việt AI</span>
+      <span class="badge badge-edu">Phòng chống BLHĐ</span>
+    </div>
+  </header>
+
+  <!-- Server Status -->
+  <div id="server-status">
+    <div class="status-dot checking" id="status-dot"></div>
+    <span id="status-text">Đang kiểm tra kết nối server...</span>
+  </div>
+
+  <!-- Main App -->
+  <div id="main-app">
+    <div class="section-card">
+      <div class="section-label">Phân tích văn bản</div>
+      <div class="model-chip">🤖 PhoBERT · Fine-tuned BLHĐ · Tiếng Việt</div>
+      <textarea id="input-text"
+        placeholder="Nhập câu văn, tin nhắn, hoặc nội dung cần kiểm tra... (Ví dụ: nội dung chat nhóm, lời nhắn, bình luận...)"
+        rows="4"></textarea>
+
+      <div class="samples-row">
+        <span style="font-size:0.72rem;color:var(--muted);align-self:center;font-family:'Space Mono',monospace;">VÍ DỤ:</span>
+        <div class="sample-chip" onclick="setSample(this)">Tao sẽ đánh mày nếu mày không nghe lời.</div>
+        <div class="sample-chip" onclick="setSample(this)">Cả băng tao chặn đường mày, mày chạy đâu cho thoát.</div>
+        <div class="sample-chip" onclick="setSample(this)">Mày dám tố cáo tao hả, mày không sợ à.</div>
+        <div class="sample-chip" onclick="setSample(this)">Hôm nay trời đẹp, cả lớp đi dã ngoại vui lắm.</div>
+        <div class="sample-chip" onclick="setSample(this)">Bạn ơi, cho mình hỏi bài tập toán với nhé?</div>
+      </div>
+
+      <div class="input-footer">
+        <span class="char-count" id="char-count">0 ký tự</span>
+        <button class="analyze-btn" id="analyze-btn" onclick="analyze()">
+          <div class="btn-spinner" id="btn-spinner"></div>
+          <span id="btn-text">🔍 Phân tích ngay</span>
+        </button>
+      </div>
+
+      <div class="threshold-row">
+        <span class="threshold-label">⚙️ Ngưỡng cảnh báo BLHĐ:</span>
+        <input type="range" id="threshold" min="0" max="100" value="50" oninput="updateThreshold(this.value)">
+        <span class="threshold-val" id="threshold-display">50%</span>
+      </div>
+      <div style="margin-top:0.8rem;padding:0.75rem 1rem;background:var(--surface2);border-radius:10px;border:1px solid var(--border);font-size:0.78rem;color:var(--muted);line-height:1.7;">
+        <span style="color:var(--text);font-weight:600;">🔴 Kích hoạt cảnh báo đỏ nếu:</span><br>
+        &nbsp;&nbsp;Xác suất BLHĐ từ model PhoBERT vượt ngưỡng đã chọn ở trên
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results">
+      <div id="alert-banner"></div>
+
+      <!-- Gauges -->
+      <div class="gauge-section" style="grid-template-columns:1fr 1fr;">
+        <div class="gauge-card" id="gauge-card-blhd">
+          <div class="gauge-label">Xác suất BLHĐ</div>
+          <div class="radial-gauge">
+            <svg viewBox="0 0 120 120" width="120" height="120">
+              <circle class="gauge-track" cx="60" cy="60" r="50"/>
+              <circle class="gauge-fill" id="gauge-fill-blhd" cx="60" cy="60" r="50"/>
+            </svg>
+            <div class="gauge-value">
+              <span id="gauge-val-blhd">0%</span>
+              <span class="gauge-unit">BLHĐ</span>
+            </div>
+          </div>
+        </div>
+        <div class="gauge-card" id="gauge-card-normal">
+          <div class="gauge-label">Xác suất Bình thường</div>
+          <div class="radial-gauge">
+            <svg viewBox="0 0 120 120" width="120" height="120">
+              <circle class="gauge-track" cx="60" cy="60" r="50"/>
+              <circle class="gauge-fill" id="gauge-fill-normal" cx="60" cy="60" r="50"/>
+            </svg>
+            <div class="gauge-value">
+              <span id="gauge-val-normal">0%</span>
+              <span class="gauge-unit">BÌNH THƯỜNG</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Confidence breakdown -->
+      <div class="conf-section">
+        <div class="conf-title">Phân tích xác suất từ PhoBERT</div>
+        <div id="conf-list"></div>
+      </div>
+
+      <!-- Recommendation -->
+      <div id="rec-card"></div>
+
+      <button class="reset-btn" onclick="resetApp()">↩ Phân tích văn bản khác</button>
+    </div>
+  </div>
+
+  <footer>
+    Được xây dựng bằng PhoBERT (VinAI) · Fine-tuned phát hiện Bạo Lực Học Đường tiếng Việt<br>
+    Dành cho mục đích nghiên cứu và phòng chống bạo lực học đường
+  </footer>
+</div>
+
+<script>
+const API_URL   = 'http://localhost:5000';
+let threshold   = 0.50;
+let serverOnline = false;
+
+// ── Kiểm tra server khi tải trang ───────────────────────────
+async function checkServer() {
+  const dot  = document.getElementById('status-dot');
+  const txt  = document.getElementById('status-text');
+  dot.className = 'status-dot checking';
+  txt.textContent = 'Đang kiểm tra kết nối server...';
+
+  try {
+    const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      serverOnline = true;
+      dot.className = 'status-dot online';
+      txt.textContent = 'Server PhoBERT đang chạy — Sẵn sàng phân tích';
+      txt.style.color = '#68d391';
+    } else { throw new Error(); }
+  } catch {
+    serverOnline = false;
+    dot.className = 'status-dot offline';
+    txt.innerHTML = 'Server chưa chạy — Hãy chạy <code style="background:rgba(255,255,255,0.1);padding:0.1rem 0.4rem;border-radius:4px;font-family:monospace;">python server.py</code> trước';
+    txt.style.color = '#fc8181';
+  }
+}
+
+// Kiểm tra mỗi 5 giây
+checkServer();
+setInterval(checkServer, 5000);
+
+// ── Input handlers ───────────────────────────────────────────
+document.getElementById('input-text').addEventListener('input', function () {
+  document.getElementById('char-count').textContent = this.value.length + ' ký tự';
+});
+
+function setSample(el) {
+  document.getElementById('input-text').value = el.textContent;
+  document.getElementById('char-count').textContent = el.textContent.length + ' ký tự';
+}
+
+function updateThreshold(val) {
+  threshold = val / 100;
+  document.getElementById('threshold-display').textContent = val + '%';
+}
+
+// ── Gauge helpers ────────────────────────────────────────────
+function setGauge(id, pct, color) {
+  const el = document.getElementById(id);
+  const offset = 314 - (pct / 100) * 314;
+  el.style.strokeDashoffset = offset;
+  el.style.stroke = color;
+}
+
+function getColor(pct) {
+  if (pct >= 70) return '#e53e3e';
+  if (pct >= 40) return '#d69e2e';
+  return '#38a169';
+}
+
+// ── Phân tích ────────────────────────────────────────────────
+async function analyze() {
+  const text = document.getElementById('input-text').value.trim();
+  if (!text) {
+    document.getElementById('input-text').style.borderColor = 'rgba(229,62,62,0.6)';
+    setTimeout(() => document.getElementById('input-text').style.borderColor = '', 1500);
+    return;
+  }
+
+  if (!serverOnline) {
+    alert('⚠️ Server chưa chạy!\nHãy mở PowerShell và chạy lệnh:\n\npython server.py');
+    return;
+  }
+
+  // Loading state
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true;
+  document.getElementById('btn-spinner').style.display = 'block';
+  document.getElementById('btn-text').textContent = 'Đang phân tích...';
+  document.getElementById('results').style.display = 'none';
+
+  try {
+    const res  = await fetch(`${API_URL}/predict`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ text }),
+    });
+
+    if (!res.ok) throw new Error('Lỗi server: ' + res.status);
+    const data = await res.json();
+
+    const blhdPct   = Math.round(data.p_blhd   * 100);
+    const normalPct = Math.round(data.p_normal  * 100);
+    const isAlarm   = data.p_blhd >= threshold;
+    const isMedium  = !isAlarm && data.p_blhd >= (threshold * 0.6);
+
+    // Show results
+    document.getElementById('results').style.display = 'block';
+
+    // Alert banner
+    const alertEl = document.getElementById('alert-banner');
+
+    if (isAlarm) {
+      // Flash red
+      const flash = document.getElementById('alarm-flash');
+      flash.classList.remove('flashing');
+      void flash.offsetWidth;
+      flash.classList.add('flashing');
+
+      document.getElementById('gauge-card-blhd').classList.add('triggered');
+      document.getElementById('gauge-card-normal').classList.remove('triggered');
+
+      alertEl.innerHTML = `
+        <div class="alert-banner alert-danger">
+          <div class="alert-icon" style="animation:shake 0.5s ease 0.2s 3 both">🚨</div>
+          <div class="alert-content">
+            <div class="alert-title">🚨 CẢNH BÁO BẠO LỰC HỌC ĐƯỜNG — CẦN XỬ LÝ NGAY!</div>
+            <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin:0.6rem 0">
+              <span class="trigger-tag trigger-tag-danger">🔴 Xác suất BLHĐ: <strong>${blhdPct}%</strong> vượt ngưỡng ${Math.round(threshold*100)}%</span>
+            </div>
+            <div class="alert-desc">
+              Model PhoBERT phát hiện nội dung bạo lực học đường với độ tin cậy <strong style="color:#fc8181">${blhdPct}%</strong>.<br>
+              Cần can thiệp ngay lập tức. Thông báo cho giáo viên chủ nhiệm, ban giám hiệu và phụ huynh.
+            </div>
+          </div>
+        </div>`;
+
+    } else if (isMedium) {
+      document.getElementById('gauge-card-blhd').classList.remove('triggered');
+      document.getElementById('gauge-card-normal').classList.remove('triggered');
+      alertEl.innerHTML = `
+        <div class="alert-banner alert-warn">
+          <div class="alert-icon">⚠️</div>
+          <div class="alert-content">
+            <div class="alert-title">Cần theo dõi — Dấu hiệu đáng ngờ</div>
+            <div class="alert-desc">
+              Xác suất BLHĐ <strong style="color:#f6ad55">${blhdPct}%</strong> · Bình thường <strong style="color:#f6ad55">${normalPct}%</strong>.<br>
+              Chưa vượt ngưỡng cảnh báo nhưng cần chú ý theo dõi và lưu lại để đánh giá thêm.
+            </div>
+          </div>
+        </div>`;
+    } else {
+      document.getElementById('gauge-card-blhd').classList.remove('triggered');
+      document.getElementById('gauge-card-normal').classList.remove('triggered');
+      alertEl.innerHTML = `
+        <div class="alert-banner alert-safe">
+          <div class="alert-icon">✅</div>
+          <div class="alert-content">
+            <div class="alert-title">An toàn — Không phát hiện BLHĐ</div>
+            <div class="alert-desc">
+              Xác suất BLHĐ <strong style="color:#68d391">${blhdPct}%</strong> · Bình thường <strong style="color:#68d391">${normalPct}%</strong>.<br>
+              Model PhoBERT không phát hiện nội dung bạo lực học đường.
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // Gauges
+    setTimeout(() => {
+      setGauge('gauge-fill-blhd',   blhdPct,   getColor(blhdPct));
+      setGauge('gauge-fill-normal', normalPct, getColor(100 - normalPct));
+      document.getElementById('gauge-val-blhd').textContent   = blhdPct + '%';
+      document.getElementById('gauge-val-normal').textContent = normalPct + '%';
+      document.getElementById('gauge-val-blhd').style.color   = getColor(blhdPct);
+      document.getElementById('gauge-val-normal').style.color = '#38a169';
+    }, 100);
+
+    // Confidence breakdown
+    const confList = document.getElementById('conf-list');
+    const rows = [
+      { name: '🔴 Bạo lực học đường', pct: blhdPct,   isBlhd: true  },
+      { name: '🟢 Bình thường',        pct: normalPct, isBlhd: false },
+    ];
+
+    confList.innerHTML = rows.map((r, i) => `
+      <div class="conf-row" style="animation:fade-row 0.4s ease ${i*0.1}s both">
+        <div class="conf-name">${r.name}</div>
+        <div class="conf-bar-wrap">
+          <div class="conf-bar" style="background:${r.isBlhd ? getColor(r.pct) : '#38a169'};width:0%" data-target="${r.pct}"></div>
+        </div>
+        <div class="conf-pct" style="color:${r.isBlhd ? getColor(r.pct) : '#38a169'}">${r.pct}%</div>
+        <div class="conf-badge ${r.isBlhd ? 'badge-blhd' : 'badge-normal'}">${r.isBlhd ? '⚠ BLHĐ' : '✓ BÌNH THƯỜNG'}</div>
+      </div>
+    `).join('');
+
+    setTimeout(() => {
+      document.querySelectorAll('.conf-bar').forEach(b => { b.style.width = b.getAttribute('data-target') + '%'; });
+    }, 200);
+
+    // Recommendation
+    const recEl = document.getElementById('rec-card');
+    if (isAlarm) {
+      recEl.innerHTML = `
+        <div class="rec-card">
+          <div class="rec-head">Khuyến nghị xử lý ngay</div>
+          <ul class="rec-list">
+            <li>Lưu lại nội dung này làm bằng chứng (chụp màn hình, ghi chép)</li>
+            <li>Thông báo ngay cho giáo viên chủ nhiệm hoặc ban giám hiệu</li>
+            <li>Liên hệ phụ huynh học sinh liên quan để phối hợp xử lý</li>
+            <li>Nếu có dấu hiệu nguy hiểm thể xác, gọi ngay <strong>113 hoặc 1800 599 920</strong></li>
+            <li>Hỗ trợ tâm lý cho nạn nhân — liên hệ tư vấn học đường</li>
+          </ul>
+        </div>`;
+    } else if (isMedium) {
+      recEl.innerHTML = `
+        <div class="rec-card warn-rec">
+          <div class="rec-head">Khuyến nghị theo dõi</div>
+          <ul class="rec-list">
+            <li>Lưu lại nội dung để theo dõi thêm theo thời gian</li>
+            <li>Quan sát hành vi của học sinh liên quan trong 2–3 ngày tới</li>
+            <li>Nếu có thêm dấu hiệu tương tự, cần báo cáo lên giáo viên</li>
+            <li>Trao đổi nhẹ nhàng với học sinh về thái độ, ngôn ngữ sử dụng</li>
+          </ul>
+        </div>`;
+    } else {
+      recEl.innerHTML = `
+        <div class="rec-card safe-rec">
+          <div class="rec-head">Đánh giá của hệ thống</div>
+          <ul class="rec-list">
+            <li>Không phát hiện nội dung bạo lực học đường trong văn bản này</li>
+            <li>Tiếp tục theo dõi định kỳ để phát hiện sớm các dấu hiệu bất thường</li>
+            <li>Duy trì môi trường học tập lành mạnh và khuyến khích giao tiếp tích cực</li>
+          </ul>
+        </div>`;
+    }
+
+  } catch (err) {
+    document.getElementById('alert-banner').innerHTML = `
+      <div class="alert-banner alert-warn">
+        <div class="alert-icon">❌</div>
+        <div class="alert-content">
+          <div class="alert-title">Lỗi kết nối</div>
+          <div class="alert-desc">${err.message}<br>Hãy đảm bảo <code>python server.py</code> đang chạy.</div>
+        </div>
+      </div>`;
+    document.getElementById('results').style.display = 'block';
+  }
+
+  btn.disabled = false;
+  document.getElementById('btn-spinner').style.display = 'none';
+  document.getElementById('btn-text').textContent = '🔍 Phân tích ngay';
+}
+
+function resetApp() {
+  document.getElementById('input-text').value = '';
+  document.getElementById('char-count').textContent = '0 ký tự';
+  document.getElementById('results').style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') analyze();
+});
+</script>
+</body>
+</html>
