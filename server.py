@@ -3,7 +3,10 @@ server.py - Flask API server cho hệ thống phát hiện BLHĐ
 Chạy lệnh: python server.py
 Sau đó mở file blhd_warning.html trên trình duyệt
 """
-
+# Copyright (C) 2026 Dang2nek
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License.
 import torch
 from pathlib import Path
 from flask import Flask, request, jsonify
