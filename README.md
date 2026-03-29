@@ -10,3 +10,15 @@
 * **Author:** DANG2NEK (Class 7A1)
 * **Base Model:** [PhoBERT-base](https://huggingface.co/vinai/phobert-base)
 * **Official Repository:** [VinAIResearch/PhoBERT](https://github.com/VinAIResearch/PhoBERT)
+---
+ VIE:**Cách cài đặt**
+* **1. Clone dự án**: `git clone https://github.com/Dang2nek/FANG-model-for-PhoBERT.git`
+* **2. Cài đặt thư viện**: `pip install -r requirements.txt`
+* **3. Chạy Server**: `python server.py`
+* **4. Chạy giao diện**:`Mở blhd_warning.html`
+---
+ ENG: **How to install**
+ * **1. Clone the repository**: `git clone https://github.com/Dang2nek/FANG-model-for-PhoBERT.git`
+ * **2. Install dependencies**: `pip install -r requirements.txt`
+ * **3. Start the backend server**: `python server.py`
+ * **4. Run the UI**: `Open blhd_warning.html`
